@@ -21,7 +21,7 @@ targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 features = ["blocking", "cookies", "json", "multipart"]
 
 [features]
-default = ["default-tls"]
+default = ["default-tls", "boring-tls", "blocking", "chrome", "brotli"]
 
 # Note: this doesn't enable the 'native-tls' feature, which adds specific
 # functionality for it.
@@ -83,7 +83,7 @@ __boring = [
 
 __chrome = ["__boring", "__browser_common"]
 
-__browser_common = ["brotli", "gzip"]
+__browser_common = [ "gzip"]
 
 # When enabled, disable using the cached SYS_PROXIES.
 __internal_proxy_sys_no_cache = []
@@ -96,6 +96,7 @@ bytes = "1.0"
 serde = "1.0"
 serde_urlencoded = "0.7.1"
 tower-service = "0.3"
+brotli = "8.0.1"
 
 # Optional deps...
 
@@ -140,16 +141,16 @@ hyper-rustls = { version = "0.23", default-features = false, optional = true }
 rustls = { version = "0.20", features = [
     "dangerous_configuration",
 ], optional = true }
-tokio-rustls = { version = "0.23", optional = true }
-webpki-roots = { version = "0.22", optional = true }
-rustls-native-certs = { version = "0.6", optional = true }
-rustls-pemfile = { version = "1.0", optional = true }
+tokio-rustls = { version = "0.26", optional = true }
+webpki-roots = { version = "1", optional = true }
+rustls-native-certs = { version = "0.8", optional = true }
+rustls-pemfile = { version = "2", optional = true }
 
 ## boring-tls
-hyper-boring = { git = "https://github.com/4JX/boring", rev = "2a7463a", optional = true }
-boring = { git = "https://github.com/4JX/boring", rev = "2a7463a", optional = true }
-tokio-boring = { git = "https://github.com/4JX/boring", rev = "2a7463a", optional = true }
-boring-sys = { git = "https://github.com/4JX/boring", rev = "2a7463a", optional = true }
+boring = { git="https://github.com/cloudflare/boring", package = "boring", optional = true, features = ["pq-experimental"] }
+boring-sys = { git="https://github.com/cloudflare/boring", package = "boring-sys", optional = true, features = ["pq-experimental"] }
+tokio-boring = { git="https://github.com/cloudflare/boring", package = "tokio-boring", optional = true, features = ["pq-experimental"] }
+hyper-boring = { git="https://github.com/cloudflare/boring", package = "hyper-boring", optional = true, features = ["pq-experimental"] }
 foreign-types = { version = "0.5.0", optional = true }
 
 ## cookies
@@ -183,8 +184,8 @@ hyper = { version = "0.14", default-features = false, features = [
     "runtime",
 ] }
 serde = { version = "1.0", features = ["derive"] }
-libflate = "1.0"
-brotli_crate = { package = "brotli", version = "3.3.0" }
+libflate = "2.1.0"
+brotli = "8.0.1"
 doc-comment = "0.3"
 tokio = { version = "1.0", default-features = false, features = [
     "macros",
@@ -282,5 +283,5 @@ path = "tests/multipart.rs"
 required-features = ["multipart"]
 
 [patch.crates-io]
-h2 = { git = "https://github.com/4JX/h2.git", branch = "imp" }
-hyper = { git = "https://github.com/4JX/hyper.git", branch = "v0.14.18-patched" }
+h2 = { git = "https://github.com/deedy5/h2.git", branch = "imp" }
+hyper = { git = "https://github.com/deedy5/hyper.git", branch = "v0.14.18-patched" }
