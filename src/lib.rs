@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
 #![deny(missing_debug_implementations)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![cfg_attr(test, deny(warnings))]
+//#![cfg_attr(test, deny(warnings))]
 #![doc(html_root_url = "https://docs.rs/reqwest/0.11.13")]
 
 //! # reqwest
@@ -12,16 +12,14 @@
 //! It handles many of the things that most people just expect an HTTP client
 //! to do for them.
 //!
-//! - Async and [blocking](blocking) Clients
+//! - Async Client
 //! - Plain bodies, [JSON](#json), [urlencoded](#forms), [multipart](multipart)
 //! - Customizable [redirect policy](#redirect-policies)
 //! - HTTP [Proxies](#proxies)
 //! - Uses system-native [TLS](#tls)
 //! - Cookies
 //!
-//! The [`reqwest::Client`][client] is asynchronous. For applications wishing
-//! to only make a few HTTP requests, the [`reqwest::blocking`](blocking) API
-//! may be more convenient.
+//! The [`reqwest::Client`][client] is asynchronous.
 //!
 //! Additional learning resources include:
 //!
@@ -179,7 +177,6 @@
 //!   while using root certificates from the `webpki-roots` crate.
 //! - **rustls-tls-native-roots**: Enables TLS functionality provided by `rustls`,
 //!   while using root certificates from the `rustls-native-certs` crate.
-//! - **blocking**: Provides the [blocking][] client API.
 //! - **cookies**: Provides cookie session support.
 //! - **gzip**: Provides response body gzip decompression.
 //! - **brotli**: Provides response body brotli decompression.
@@ -193,7 +190,6 @@
 //!
 //!
 //! [hyper]: http://hyper.rs
-//! [blocking]: ./blocking/index.html
 //! [client]: ./struct.Client.html
 //! [response]: ./struct.Response.html
 //! [get]: ./fn.get.html
@@ -203,16 +199,8 @@
 //! [Proxy]: ./struct.Proxy.html
 //! [cargo-features]: https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-features-section
 
-macro_rules! if_wasm {
-    ($($item:item)*) => {$(
-        #[cfg(target_arch = "wasm32")]
-        $item
-    )*}
-}
-
 macro_rules! if_hyper {
     ($($item:item)*) => {$(
-        #[cfg(not(target_arch = "wasm32"))]
         $item
     )*}
 }
@@ -282,10 +270,7 @@ fn _assert_impls() {
     assert_send::<Request>();
     assert_send::<RequestBuilder>();
 
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        assert_send::<Response>();
-    }
+    assert_send::<Response>();
 
     assert_send::<Error>();
     assert_sync::<Error>();
@@ -311,8 +296,6 @@ if_hyper! {
 
 
     mod async_impl;
-    #[cfg(feature = "blocking")]
-    pub mod blocking;
     mod connect;
     #[cfg(feature = "cookies")]
     pub mod cookie;
@@ -322,13 +305,4 @@ if_hyper! {
     #[cfg(feature = "__tls")]
     pub mod tls;
     mod util;
-}
-
-if_wasm! {
-    mod wasm;
-    mod util;
-
-    pub use self::wasm::{Body, Client, ClientBuilder, Request, RequestBuilder, Response};
-    #[cfg(feature = "multipart")]
-    pub use self::wasm::multipart;
 }

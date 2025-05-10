@@ -1,5 +1,3 @@
-#![cfg(not(target_arch = "wasm32"))]
-
 #[cfg(all(feature = "__tls", not(feature = "rustls-tls-manual-roots")))]
 #[tokio::test]
 async fn test_badssl_modern() {

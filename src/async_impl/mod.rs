@@ -4,7 +4,6 @@ pub use self::request::{Request, RequestBuilder};
 pub use self::response::Response;
 pub use self::upgrade::Upgraded;
 
-#[cfg(feature = "blocking")]
 pub(crate) use self::decoder::Decoder;
 
 pub mod body;

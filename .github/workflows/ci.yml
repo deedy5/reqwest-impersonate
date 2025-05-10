@@ -20,7 +20,6 @@ jobs:
       - nightly
       - msrv
       - android
-      - wasm
       - docs
     steps:
       - run: exit 0
@@ -71,7 +70,6 @@ jobs:
           - "feat.: native-tls"
           - "feat.: default-tls and rustls-tls"
           - "feat.: cookies"
-          - "feat.: blocking"
           - "feat.: gzip"
           - "feat.: brotli"
           - "feat.: deflate"
@@ -98,21 +96,21 @@ jobs:
           - name: windows / stable-x86_64-msvc
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            features: "--features blocking,gzip,brotli,deflate,json,multipart"
+            features: "--features gzip,brotli,deflate,json,multipart"
           - name: windows / stable-i686-msvc
             os: windows-latest
             target: i686-pc-windows-msvc
-            features: "--features blocking,gzip,brotli,deflate,json,multipart"
+            features: "--features gzip,brotli,deflate,json,multipart"
           - name: windows / stable-x86_64-gnu
             os: windows-latest
             rust: stable-x86_64-pc-windows-gnu
             target: x86_64-pc-windows-gnu
-            features: "--features blocking,gzip,brotli,deflate,json,multipart"
+            features: "--features gzip,brotli,deflate,json,multipart"
           - name: windows / stable-i686-gnu
             os: windows-latest
             rust: stable-i686-pc-windows-gnu
             target: i686-pc-windows-gnu
-            features: "--features blocking,gzip,brotli,deflate,json,multipart"
+            features: "--features gzip,brotli,deflate,json,multipart"
 
           - name: "feat.: default-tls disabled"
             features: "--no-default-features"
@@ -126,8 +124,6 @@ jobs:
             features: "--features rustls-tls"
           - name: "feat.: cookies"
             features: "--features cookies"
-          - name: "feat.: blocking"
-            features: "--features blocking"
           - name: "feat.: gzip"
             features: "--features gzip"
           - name: "feat.: brotli"
@@ -268,30 +264,3 @@ jobs:
       - name: Build
         # disable default-tls feature since cross-compiling openssl is dragons
         run: cargo build --target aarch64-linux-android --no-default-features
-
-  wasm:
-    name: WASM
-    needs: [style]
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Install rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-
-      - name: Check
-        run: cargo check --target wasm32-unknown-unknown
-
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-      - name: Wasm-pack test firefox
-        run: wasm-pack test --headless --firefox
-
-      - name: Wasm-pack test chrome
-        run: wasm-pack test --headless --chrome
