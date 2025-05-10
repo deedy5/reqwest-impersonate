@@ -11,6 +11,8 @@ pub use chrome::ChromeVersion;
 #[cfg(feature = "__chrome")]
 mod chrome;
 
+mod cert_compressor;
+
 #[cfg(feature = "__chrome")]
 pub(crate) use chrome::configure_chrome;
 

@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
-use boring::ssl::{
-    CertCompressionAlgorithm, SslConnector, SslConnectorBuilder, SslMethod, SslVersion,
-};
+use boring::ssl::{SslConnector, SslConnectorBuilder, SslMethod, SslVersion};
 use http::{
     header::{ACCEPT, ACCEPT_ENCODING, ACCEPT_LANGUAGE, UPGRADE_INSECURE_REQUESTS, USER_AGENT},
     HeaderMap,
 };
 
-use crate::browser::{BrowserSettings, Http2Data};
+use crate::browser::{cert_compressor, BrowserSettings, Http2Data};
 
 pub(super) fn get_settings() -> BrowserSettings {
     BrowserSettings {
@@ -72,7 +70,7 @@ fn create_ssl_connector() -> SslConnectorBuilder {
     builder.set_alpn_protos(b"\x02h2\x08http/1.1").unwrap();
 
     builder
-        .add_cert_compression_alg(CertCompressionAlgorithm::Brotli)
+        .add_certificate_compression_algorithm(cert_compressor::BrotliCompressor::default())
         .unwrap();
 
     builder
