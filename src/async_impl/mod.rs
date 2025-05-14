@@ -4,8 +4,6 @@ pub use self::request::{Request, RequestBuilder};
 pub use self::response::Response;
 pub use self::upgrade::Upgraded;
 
-pub(crate) use self::decoder::Decoder;
-
 pub mod body;
 pub mod client;
 pub mod decoder;
