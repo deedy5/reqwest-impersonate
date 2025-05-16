@@ -31,7 +31,6 @@ deflate = ["async-compression", "async-compression/zlib", "tokio-util"]
 
 json = ["serde_json"]
 multipart = ["mime_guess"]
-trust-dns = ["trust-dns-resolver"]
 stream = ["tokio/fs", "tokio-util"]
 socks = ["tokio-socks"]
 boring-tls = [
@@ -108,9 +107,6 @@ tokio-util = { version = "0.7.1", default-features = false, features = [
 
 ## socks
 tokio-socks = { version = "0.5.1", optional = true }
-
-## trust-dns
-trust-dns-resolver = { version = "0.22", optional = true }
 
 [dev-dependencies]
 env_logger = "0.8"

@@ -27,8 +27,6 @@ use super::Body;
 use crate::browser::{configure_chrome, ChromeVersion};
 use crate::connect::Connector;
 use crate::cookie;
-#[cfg(feature = "trust-dns")]
-use crate::dns::trust_dns::TrustDnsResolver;
 use crate::dns::{gai::GaiResolver, DnsResolverWithOverrides, DynResolver, Resolve};
 use crate::error;
 use crate::into_url::{expect_uri, try_uri};
@@ -104,7 +102,6 @@ struct Config {
     nodelay: bool,
     #[cfg(feature = "cookies")]
     cookie_store: Option<Arc<dyn cookie::CookieStore>>,
-    trust_dns: bool,
     error: Option<crate::Error>,
     https_only: bool,
     dns_overrides: HashMap<String, Vec<SocketAddr>>,
@@ -164,7 +161,6 @@ impl ClientBuilder {
                 http2_keep_alive_while_idle: false,
                 local_address: None,
                 nodelay: true,
-                trust_dns: cfg!(feature = "trust-dns"),
                 #[cfg(feature = "cookies")]
                 cookie_store: None,
                 https_only: false,
@@ -202,13 +198,7 @@ impl ClientBuilder {
                 headers.get(USER_AGENT).cloned()
             }
 
-            let mut resolver: Arc<dyn Resolve> = match config.trust_dns {
-                false => Arc::new(GaiResolver::new()),
-                #[cfg(feature = "trust-dns")]
-                true => Arc::new(TrustDnsResolver::new().map_err(crate::error::builder)?),
-                #[cfg(not(feature = "trust-dns"))]
-                true => unreachable!("trust-dns shouldn't be enabled unless the feature is"),
-            };
+            let mut resolver: Arc<dyn Resolve> = Arc::new(GaiResolver::new());
             if let Some(dns_resolver) = config.dns_resolver {
                 resolver = dns_resolver;
             }
@@ -938,37 +928,6 @@ impl ClientBuilder {
     ) -> ClientBuilder {
         self.config.tls = TlsBackend::BoringTls(builder_func);
         self
-    }
-
-    /// Enables the [trust-dns](trust_dns_resolver) async resolver instead of a default threadpool using `getaddrinfo`.
-    ///
-    /// If the `trust-dns` feature is turned on, the default option is enabled.
-    ///
-    /// # Optional
-    ///
-    /// This requires the optional `trust-dns` feature to be enabled
-    #[cfg(feature = "trust-dns")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "trust-dns")))]
-    pub fn trust_dns(mut self, enable: bool) -> ClientBuilder {
-        self.config.trust_dns = enable;
-        self
-    }
-
-    /// Disables the trust-dns async resolver.
-    ///
-    /// This method exists even if the optional `trust-dns` feature is not enabled.
-    /// This can be used to ensure a `Client` doesn't use the trust-dns async resolver
-    /// even if another dependency were to enable the optional `trust-dns` feature.
-    pub fn no_trust_dns(self) -> ClientBuilder {
-        #[cfg(feature = "trust-dns")]
-        {
-            self.trust_dns(false)
-        }
-
-        #[cfg(not(feature = "trust-dns"))]
-        {
-            self
-        }
     }
 
     /// Restrict the Client to be used with HTTPS only requests.
