@@ -762,10 +762,14 @@ impl fmt::Debug for Custom {
 }
 
 pub(crate) fn encode_basic_auth(username: &str, password: &str) -> HeaderValue {
+    use base64::Engine;
     let val = format!("{}:{}", username, password);
-    let mut header = format!("Basic {}", base64::encode(&val))
-        .parse::<HeaderValue>()
-        .expect("base64 is always valid HeaderValue");
+    let mut header = format!(
+        "Basic {}",
+        base64::engine::general_purpose::STANDARD.encode(&val)
+    )
+    .parse::<HeaderValue>()
+    .expect("base64 is always valid HeaderValue");
     header.set_sensitive(true);
     header
 }

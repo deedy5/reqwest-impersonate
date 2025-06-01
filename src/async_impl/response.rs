@@ -204,7 +204,7 @@ impl Response {
     /// # Examples
     ///
     /// ```
-    /// # extern crate reqwest;
+    /// # extern crate reqwest_impersonate;
     /// # extern crate serde;
     /// #
     /// # use reqwest_impersonate::Error;
