@@ -178,5 +178,5 @@ path = "tests/multipart.rs"
 required-features = ["multipart"]
 
 [patch.crates-io]
-h2 = { git = "https://github.com/deedy5/h2.git", branch = "imp" }
+h2 = { git = "https://github.com/deedy5/h2.git", branch = "0.3.26-patched" }
 hyper = { git = "https://github.com/deedy5/hyper.git", branch = "v0.14.32-patched" }

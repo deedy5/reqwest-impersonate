@@ -547,8 +547,7 @@ checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
 [[package]]
 name = "h2"
 version = "0.3.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81fe527a889e1532da5c525686d96d4c2e74cdd345badf8dfef9f6b39dd5f5e8"
+source = "git+https://github.com/deedy5/h2.git?branch=0.3.26-patched#3fb75c16da9affb4631d81f35cb2ca246bac2695"
 dependencies = [
  "bytes",
  "fnv",
@@ -1796,8 +1795,3 @@ dependencies = [
  "quote",
  "syn",
 ]
-
-[[patch.unused]]
-name = "h2"
-version = "0.3.14"
-source = "git+https://github.com/deedy5/h2.git?branch=imp#90af7b9da9ee5475551176b63983df3c58bc3e8d"
