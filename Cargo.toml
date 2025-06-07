@@ -179,4 +179,4 @@ required-features = ["multipart"]
 
 [patch.crates-io]
 h2 = { git = "https://github.com/deedy5/h2.git", branch = "imp" }
-hyper = { git = "https://github.com/deedy5/hyper.git", branch = "v0.14.18-patched" }
+hyper = { git = "https://github.com/deedy5/hyper.git", branch = "v0.14.32-patched" }
