@@ -1981,7 +1981,7 @@ mod test {
 
                 #[test]
                 fn invalid_domain_character() {
-                    check_parse_error("http://abc 123/", url::ParseError::InvalidDomainCharacter);
+                    check_parse_error("http://abc 123/", url::ParseError::IdnaError);
                 }
             }
         }

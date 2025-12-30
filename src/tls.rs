@@ -49,9 +49,11 @@ use rustls::{
     client::HandshakeSignatureValid, client::ServerCertVerified, client::ServerCertVerifier,
     DigitallySignedStruct, Error as TLSError, ServerName,
 };
+#[cfg(feature = "__boring")]
+use std::sync::Arc;
 use std::{
     fmt,
-    io::{BufRead, BufReader},
+    //io::{BufRead, BufReader},
 };
 
 /// Represents a server X509 certificate.
@@ -107,6 +109,11 @@ impl Certificate {
     /// # Ok(())
     /// # }
     /// ```
+    #[cfg(any(
+        not(feature = "__boring"),
+        feature = "native-tls-crate",
+        feature = "__rustls"
+    ))]
     pub fn from_der(der: &[u8]) -> crate::Result<Certificate> {
         Ok(Certificate {
             #[cfg(feature = "native-tls-crate")]
@@ -132,6 +139,11 @@ impl Certificate {
     /// # Ok(())
     /// # }
     /// ```
+    #[cfg(any(
+        not(feature = "__boring"),
+        feature = "native-tls-crate",
+        feature = "__rustls"
+    ))]
     pub fn from_pem(pem: &[u8]) -> crate::Result<Certificate> {
         Ok(Certificate {
             #[cfg(feature = "native-tls-crate")]
@@ -158,6 +170,11 @@ impl Certificate {
     /// # Ok(())
     /// # }
     /// ```
+    #[cfg(any(
+        not(feature = "__boring"),
+        feature = "native-tls-crate",
+        feature = "__rustls"
+    ))]
     pub fn from_pem_bundle(pem_bundle: &[u8]) -> crate::Result<Vec<Certificate>> {
         let mut reader = BufReader::new(pem_bundle);
 
@@ -196,6 +213,11 @@ impl Certificate {
         Ok(())
     }
 
+    #[cfg(any(
+        not(feature = "__boring"),
+        feature = "native-tls-crate",
+        feature = "__rustls"
+    ))]
     fn read_pem_certs(reader: &mut impl BufRead) -> crate::Result<Vec<Vec<u8>>> {
         rustls_pemfile::certs(reader)
             .map_err(|_| crate::error::builder("invalid certificate encoding"))
@@ -452,13 +474,17 @@ pub(crate) enum TlsBackend {
     Rustls,
     #[cfg(feature = "__rustls")]
     BuiltRustls(rustls::ClientConfig),
-    #[cfg(any(feature = "native-tls", feature = "__rustls",))]
+    #[cfg(feature = "__boring")]
+    BoringTls(Arc<dyn Fn() -> boring::ssl::SslConnectorBuilder + Send + Sync>),
+    #[cfg(any(feature = "native-tls", feature = "__rustls"))]
     UnknownPreconfigured,
 }
 
 impl fmt::Debug for TlsBackend {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            #[cfg(feature = "__boring")]
+            TlsBackend::BoringTls(_) => write!(f, "BoringTls"),
             #[cfg(feature = "default-tls")]
             TlsBackend::Default => write!(f, "Default"),
             #[cfg(feature = "native-tls")]
@@ -467,7 +493,7 @@ impl fmt::Debug for TlsBackend {
             TlsBackend::Rustls => write!(f, "Rustls"),
             #[cfg(feature = "__rustls")]
             TlsBackend::BuiltRustls(_) => write!(f, "BuiltRustls"),
-            #[cfg(any(feature = "native-tls", feature = "__rustls",))]
+            #[cfg(any(feature = "native-tls", feature = "__rustls"))]
             TlsBackend::UnknownPreconfigured => write!(f, "UnknownPreconfigured"),
         }
     }
@@ -486,6 +512,16 @@ impl Default for TlsBackend {
         ))]
         {
             TlsBackend::Rustls
+        }
+
+        #[cfg(all(feature = "__boring", not(feature = "default-tls")))]
+        {
+            use boring::ssl::{SslConnector, SslConnectorBuilder, SslMethod};
+
+            fn create_builder() -> SslConnectorBuilder {
+                SslConnector::builder(SslMethod::tls()).unwrap()
+            }
+            TlsBackend::BoringTls(Arc::new(create_builder))
         }
     }
 }
@@ -548,7 +584,7 @@ impl std::fmt::Debug for TlsInfo {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
 
     #[cfg(feature = "default-tls")]
     #[test]
@@ -592,6 +628,11 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(
+        not(feature = "__boring"),
+        feature = "native-tls-crate",
+        feature = "__rustls"
+    ))]
     fn certificates_from_pem_bundle() {
         const PEM_BUNDLE: &[u8] = b"
             -----BEGIN CERTIFICATE-----

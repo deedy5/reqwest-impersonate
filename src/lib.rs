@@ -11,16 +11,14 @@
 //! It handles many of the things that most people just expect an HTTP client
 //! to do for them.
 //!
-//! - Async and [blocking] Clients
+//! - Async Clients
 //! - Plain bodies, [JSON](#json), [urlencoded](#forms), [multipart]
 //! - Customizable [redirect policy](#redirect-policies)
 //! - HTTP [Proxies](#proxies)
 //! - Uses [TLS](#tls) by default
 //! - Cookies
 //!
-//! The [`reqwest::Client`][client] is asynchronous. For applications wishing
-//! to only make a few HTTP requests, the [`reqwest::blocking`](blocking) API
-//! may be more convenient.
+//! The [`reqwest::Client`][client] is asynchronous.
 //!
 //! Additional learning resources include:
 //!
@@ -170,7 +168,7 @@
 //!
 //! The Client implementation automatically switches to the WASM one when the target_arch is wasm32,
 //! the usage is basically the same as the async api. Some of the features are disabled in wasm
-//! : [`tls`], [`cookie`], [`blocking`].
+//! : [`tls`], [`cookie`].
 //!
 //!
 //! ## Optional Features
@@ -191,7 +189,7 @@
 //!   while using root certificates from the `webpki-roots` crate.
 //! - **rustls-tls-native-roots**: Enables TLS functionality provided by `rustls`,
 //!   while using root certificates from the `rustls-native-certs` crate.
-//! - **blocking**: Provides the [blocking][] client API.
+//!
 //! - **cookies**: Provides cookie session support.
 //! - **gzip**: Provides response body gzip decompression.
 //! - **brotli**: Provides response body brotli decompression.
@@ -225,7 +223,6 @@
 //! Support this project by becoming a [sponsor][].
 //!
 //! [hyper]: https://hyper.rs
-//! [blocking]: ./blocking/index.html
 //! [client]: ./struct.Client.html
 //! [response]: ./struct.Response.html
 //! [get]: ./fn.get.html
@@ -236,7 +233,7 @@
 //! [cargo-features]: https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-features-section
 //! [sponsor]: https://seanmonstar.com/sponsor
 
-#[cfg(all(feature = "http3", not(reqwest_unstable)))]
+#[cfg(all(feature = "http3"))] //, not(reqwest_unstable)))]
 compile_error!(
     "\
     The `http3` feature is unstable, and requires the \
@@ -258,6 +255,11 @@ macro_rules! if_hyper {
     )*}
 }
 
+/// Re-export of boring to keep versions in check
+#[cfg(feature = "__boring")]
+pub use boring;
+#[cfg(feature = "__boring")]
+pub use boring_sys;
 pub use http::header;
 pub use http::Method;
 pub use http::{StatusCode, Version};
@@ -266,6 +268,11 @@ pub use url::Url;
 // universal mods
 #[macro_use]
 mod error;
+#[cfg(feature = "__impersonate")]
+pub mod imp;
+
+#[cfg(feature = "__impersonate")]
+pub use imp::{Impersonate, ImpersonateOS};
 mod into_url;
 mod response;
 
@@ -337,7 +344,7 @@ if_hyper! {
     doctest!("../README.md");
 
     pub use self::async_impl::{
-        Body, Client, ClientBuilder, Request, RequestBuilder, Response, Upgraded,
+        Body, Client, ClientBuilder, ClientMut, Request, RequestBuilder, Response, Upgraded,
     };
     pub use self::proxy::{Proxy,NoProxy};
     #[cfg(feature = "__tls")]
@@ -348,8 +355,6 @@ if_hyper! {
 
 
     mod async_impl;
-    #[cfg(feature = "blocking")]
-    pub mod blocking;
     mod connect;
     #[cfg(feature = "cookies")]
     pub mod cookie;

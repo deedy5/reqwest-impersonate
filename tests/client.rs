@@ -413,7 +413,7 @@ async fn test_tls_info() {
         .tls_info(true)
         .build()
         .expect("client builder")
-        .get("https://google.com")
+        .get("https://github.com/")
         .send()
         .await
         .expect("response");
@@ -428,7 +428,7 @@ async fn test_tls_info() {
     let resp = reqwest::Client::builder()
         .build()
         .expect("client builder")
-        .get("https://google.com")
+        .get("https://github.com/")
         .send()
         .await
         .expect("response");
@@ -436,7 +436,7 @@ async fn test_tls_info() {
     assert!(tls_info.is_none());
 }
 
-// NOTE: using the default "curernt_thread" runtime here would cause the test to
+// NOTE: using the default "current_thread" runtime here would cause the test to
 // fail, because the only thread would block until `panic_rx` receives a
 // notification while the client needs to be driven to get the graceful shutdown
 // done.

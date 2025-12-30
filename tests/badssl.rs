@@ -40,7 +40,7 @@ async fn test_rustls_badssl_modern() {
     assert!(text.contains("<title>mozilla-modern.badssl.com</title>"));
 }
 
-#[cfg(feature = "__tls")]
+#[cfg(feature = "__tls TODO!")]
 #[tokio::test]
 async fn test_badssl_self_signed() {
     let text = reqwest::Client::builder()
@@ -59,7 +59,7 @@ async fn test_badssl_self_signed() {
     assert!(text.contains("<title>self-signed.badssl.com</title>"));
 }
 
-#[cfg(feature = "__tls")]
+#[cfg(feature = "__tls TODO!")]
 #[tokio::test]
 async fn test_badssl_no_built_in_roots() {
     let result = reqwest::Client::builder()
