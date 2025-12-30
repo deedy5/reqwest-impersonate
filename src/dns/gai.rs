@@ -1,16 +1,46 @@
-use futures_util::future::FutureExt;
 use hyper::client::connect::dns::{GaiResolver as HyperGaiResolver, Name};
 use hyper::service::Service;
+use std::collections::HashMap;
+use std::net::SocketAddr;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use crate::dns::{Addrs, Resolve, Resolving};
 use crate::error::BoxError;
 
+#[derive(Debug, Clone)]
+struct CacheEntry {
+    addrs: Vec<SocketAddr>,
+    timestamp: Instant,
+}
+
+impl CacheEntry {
+    fn new(addrs: Vec<SocketAddr>) -> Self {
+        Self {
+            addrs,
+            timestamp: Instant::now(),
+        }
+    }
+
+    fn is_expired(&self, ttl: Duration) -> bool {
+        self.timestamp.elapsed() > ttl
+    }
+}
+
 #[derive(Debug)]
-pub struct GaiResolver(HyperGaiResolver);
+pub struct GaiResolver {
+    inner: HyperGaiResolver,
+    cache: Arc<Mutex<HashMap<String, CacheEntry>>>,
+    ttl: Duration,
+}
 
 impl GaiResolver {
     pub fn new() -> Self {
-        Self(HyperGaiResolver::new())
+        Self {
+            inner: HyperGaiResolver::new(),
+            cache: Arc::new(Mutex::new(HashMap::new())),
+            ttl: Duration::from_secs(300), // 5 minutes default TTL
+        }
     }
 }
 
