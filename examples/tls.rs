@@ -1,10 +1,6 @@
-# reqwest-impersonate
+use reqwest::imp::{Impersonate, ImpersonateOS};
 
-A fork of reqwest used to impersonate browsers. 
-
-## Example
-
-```rust,no_run
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 async fn main() -> Result<(), reqwest::Error> {
     // Build a client to mimic Chrome 104
@@ -42,4 +38,3 @@ async fn main() -> Result<(), reqwest::Error> {
 
     Ok(())
 }
-```

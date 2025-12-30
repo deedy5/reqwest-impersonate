@@ -30,6 +30,8 @@ use super::Body;
 use crate::async_impl::h3_client::connect::H3Connector;
 #[cfg(feature = "http3")]
 use crate::async_impl::h3_client::{H3Client, H3ResponseFuture};
+#[cfg(feature = "__impersonate")]
+use crate::imp::{Impersonate, ImpersonateOS, configure_impersonate};
 use crate::connect::Connector;
 #[cfg(feature = "cookies")]
 use crate::cookie;
@@ -128,6 +130,10 @@ struct Config {
     http2_initial_connection_window_size: Option<u32>,
     http2_adaptive_window: bool,
     http2_max_frame_size: Option<u32>,
+    http2_max_concurrent_streams: Option<u32>,
+    http2_max_header_list_size: Option<u32>,
+    http2_enable_push: Option<bool>,
+    http2_header_table_size: Option<u32>,
     http2_keep_alive_interval: Option<Duration>,
     http2_keep_alive_timeout: Option<Duration>,
     http2_keep_alive_while_idle: bool,
@@ -150,6 +156,8 @@ struct Config {
     quic_send_window: Option<u64>,
     dns_overrides: HashMap<String, Vec<SocketAddr>>,
     dns_resolver: Option<Arc<dyn Resolve>>,
+    #[cfg(feature = "__impersonate")]
+    os_type: Option<ImpersonateOS>,
 }
 
 impl Default for ClientBuilder {
@@ -213,6 +221,10 @@ impl ClientBuilder {
                 http2_initial_connection_window_size: None,
                 http2_adaptive_window: false,
                 http2_max_frame_size: None,
+                http2_max_concurrent_streams: None,
+                http2_max_header_list_size: None,
+                http2_enable_push: None,
+                http2_header_table_size: None,
                 http2_keep_alive_interval: None,
                 http2_keep_alive_timeout: None,
                 http2_keep_alive_while_idle: false,
@@ -234,10 +246,122 @@ impl ClientBuilder {
                 #[cfg(feature = "http3")]
                 quic_send_window: None,
                 dns_resolver: None,
+                #[cfg(feature = "__impersonate")]
+                os_type: None,
             },
         }
     }
 
+    /// Sets the necessary values to mimic the specified Chrome version.
+    #[cfg(feature = "__impersonate")]
+    pub fn impersonate(self, version: Impersonate) -> ClientBuilder {
+        let os_type = self.config.os_type;
+        configure_impersonate(version, self, os_type)
+    }
+
+    /// Sets the operating system to impersonate when using browser impersonation.
+    /// 
+    /// This method should be used in combination with [`impersonate`](Self::impersonate)
+    /// to specify which operating system the impersonated browser should appear to run on.
+    /// 
+    /// The OS impersonation affects multiple HTTP headers including:
+    /// - `User-Agent`: Browser signature specific to the OS
+    /// - `sec-ch-ua-platform`: Platform identifier (e.g., "Windows", "Android")
+    /// - `sec-ch-ua-mobile`: Mobile indicator (?1 for mobile, ?0 for desktop)
+    /// 
+    /// # OS Types
+    /// 
+    /// - [`ImpersonateOS::Windows`]: Microsoft Windows (desktop)
+    /// - [`ImpersonateOS::MacOS`]: Apple macOS (desktop) 
+    /// - [`ImpersonateOS::Linux`]: Linux desktop/server (uses "Chrome OS" platform header)
+    /// - [`ImpersonateOS::Android`]: Google Android (mobile)
+    /// - [`ImpersonateOS::IOS`]: Apple iOS (mobile)
+    /// 
+    /// # Default Behavior
+    /// 
+    /// If no OS is specified, the client defaults to Windows for backward compatibility.
+    /// 
+    /// # Performance
+    /// 
+    /// Headers are cached per OS-browser combination, so creating multiple clients
+    /// with the same OS and Chrome version is efficient.
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// # #[cfg(feature = "__impersonate")]
+    /// # async fn example() -> Result<(), reqwest::Error> {
+    /// use reqwest::imp::{Impersonate, ImpersonateOS};
+    /// 
+    /// // Linux desktop impersonation
+    /// let linux_client = reqwest::Client::builder()
+    ///     .impersonate(Impersonate::ChromeV104)
+    ///     .impersonate_os(ImpersonateOS::Linux)
+    ///     .build()?;
+    /// 
+    /// // Android mobile impersonation  
+    /// let android_client = reqwest::Client::builder()
+    ///     .impersonate(Impersonate::ChromeV116)
+    ///     .impersonate_os(ImpersonateOS::Android)
+    ///     .build()?;
+    /// 
+    /// // Advanced configuration
+    /// let advanced_client = reqwest::Client::builder()
+    ///     .impersonate(Impersonate::ChromeV108)
+    ///     .impersonate_os(ImpersonateOS::MacOS)
+    ///     .timeout(std::time::Duration::from_secs(30))
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    /// 
+    /// # Mobile vs Desktop Detection
+    /// 
+    /// Mobile OS types (Android, iOS) automatically set `sec-ch-ua-mobile: ?1`
+    /// while desktop OS types (Windows, macOS, Linux) set `sec-ch-ua-mobile: ?0`.
+    /// This enables servers to serve mobile-optimized content automatically.
+    #[cfg(feature = "__impersonate")]
+    pub fn impersonate_os(mut self, os_type: ImpersonateOS) -> ClientBuilder {
+        // Store the OS type in a field that can be accessed by configure_impersonate
+        // For now, we'll use a simple approach where the OS is applied during Chrome configuration
+        self.config.os_type = Some(os_type.into());
+        self
+    }
+
+    /// Enable browser impersonation with a randomly selected Chrome version and OS.
+    /// 
+    /// This method will randomly choose both the Chrome version and operating system
+    /// from the available options. This is useful for scenarios where you want to
+    /// vary the browser fingerprint to avoid detection.
+    /// 
+    /// # Random Selection
+    /// 
+    /// - **Chrome Versions**: Randomly selects from Chrome v100 to v118
+    /// - **Operating Systems**: Randomly selects from Windows, macOS, Linux, Android, iOS
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// # #[cfg(feature = "__impersonate")]
+    /// # async fn example() -> Result<(), reqwest::Error> {
+    /// // Create a client with random Chrome version and OS
+    /// let client = reqwest::Client::builder()
+    ///     .impersonate_random()
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(feature = "__impersonate")]
+    pub fn impersonate_random(self) -> ClientBuilder {
+        use crate::imp::{get_random_impersonate_config, random_impersonate, random_impersonate_os};
+        
+        let chrome_version = random_impersonate();
+        let os_type = random_impersonate_os();
+        
+        let (final_chrome, final_os) = get_random_impersonate_config(Some(chrome_version), Some(os_type));
+        
+        configure_impersonate(final_chrome, self, Some(final_os))
+    }
     /// Returns a `Client` that uses this `ClientBuilder` configuration.
     ///
     /// # Errors
@@ -337,6 +461,16 @@ impl ClientBuilder {
 
             #[cfg(feature = "__tls")]
             match config.tls {
+                #[cfg(feature = "__boring")]
+                TlsBackend::BoringTls(tls) => Connector::new_boring_tls(
+                    http,
+                    tls,
+                    proxies.clone(),
+                    user_agent(&config.headers),
+                    config.local_address,
+                    config.nodelay,
+                    config.tls_info,
+                ),
                 #[cfg(feature = "default-tls")]
                 TlsBackend::Default => {
                     let mut tls = TlsConnector::builder();
@@ -595,7 +729,7 @@ impl ClientBuilder {
                         config.tls_info,
                     )
                 }
-                #[cfg(any(feature = "native-tls", feature = "__rustls",))]
+                #[cfg(any(feature = "native-tls", feature = "__rustls"))]
                 TlsBackend::UnknownPreconfigured => {
                     return Err(crate::error::builder(
                         "Unknown TLS backend passed to `use_preconfigured_tls`",
@@ -628,6 +762,18 @@ impl ClientBuilder {
         }
         if let Some(http2_max_frame_size) = config.http2_max_frame_size {
             builder.http2_max_frame_size(http2_max_frame_size);
+        }
+        if let Some(max) = config.http2_max_concurrent_streams {
+            builder.http2_max_concurrent_streams(max);
+        }
+        if let Some(max) = config.http2_max_header_list_size {
+            builder.http2_max_header_list_size(max);
+        }
+        if let Some(opt) = config.http2_enable_push {
+            builder.http2_enable_push(opt);
+        }
+        if let Some(max) = config.http2_header_table_size {
+            builder.http2_header_table_size(max);
         }
         if let Some(http2_keep_alive_interval) = config.http2_keep_alive_interval {
             builder.http2_keep_alive_interval(http2_keep_alive_interval);
@@ -776,6 +922,12 @@ impl ClientBuilder {
         for (key, value) in headers.iter() {
             self.config.headers.insert(key, value.clone());
         }
+        self
+    }
+
+    #[cfg(feature = "__impersonate")]
+    pub(crate) fn replace_default_headers(mut self, headers: HeaderMap) -> ClientBuilder {
+        self.config.headers = headers;
         self
     }
 
@@ -942,6 +1094,46 @@ impl ClientBuilder {
         }
 
         #[cfg(not(feature = "deflate"))]
+        {
+            self
+        }
+    }
+
+    /// Enable auto zstd decompression by checking the `Content-Encoding` response header.
+    ///
+    /// If auto zstd decompression is turned on:
+    ///
+    /// - When sending a request and if the request's headers do not already contain
+    ///   an `Accept-Encoding` **AND** `Range` values, the `Accept-Encoding` header is set to `zstd`.
+    ///   The request body is **not** automatically compressed.
+    /// - When receiving a response, if its headers contain a `Content-Encoding` value of
+    ///   `zstd`, both `Content-Encoding` and `Content-Length` are removed from the
+    ///   headers' set. The response body is automatically decompressed.
+    ///
+    /// If the `zstd` feature is turned on, the default option is enabled.
+    ///
+    /// # Optional
+    ///
+    /// This requires the optional `zstd` feature to be enabled
+    #[cfg(feature = "zstd")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "zstd")))]
+    pub fn zstd(mut self, enable: bool) -> ClientBuilder {
+        self.config.accepts.zstd = enable;
+        self
+    }
+
+    /// Disable auto response body zstd decompression.
+    ///
+    /// This method exists even if the optional `zstd` feature is not enabled.
+    /// This can be used to ensure a `Client` doesn't use zstd decompression
+    /// even if another dependency were to enable the optional `zstd` feature.
+    pub fn no_zstd(self) -> ClientBuilder {
+        #[cfg(feature = "zstd")]
+        {
+            self.zstd(false)
+        }
+
+        #[cfg(not(feature = "zstd"))]
         {
             self
         }
@@ -1148,6 +1340,39 @@ impl ClientBuilder {
     /// Default is currently 16,384 but may change internally to optimize for common uses.
     pub fn http2_max_frame_size(mut self, sz: impl Into<Option<u32>>) -> ClientBuilder {
         self.config.http2_max_frame_size = sz.into();
+        self
+    }
+
+    /// Sets the maximum concurrent streams to use for HTTP2.
+    ///
+    /// Passing `None` will do nothing.
+    pub fn http2_max_concurrent_streams(mut self, sz: impl Into<Option<u32>>) -> ClientBuilder {
+        self.config.http2_max_concurrent_streams = sz.into();
+        self
+    }
+
+    /// Sets the max header list size to use for HTTP2.
+    ///
+    /// Passing `None` will do nothing.
+    pub fn http2_max_header_list_size(mut self, sz: impl Into<Option<u32>>) -> ClientBuilder {
+        self.config.http2_max_header_list_size = sz.into();
+        self
+    }
+
+    /// Enables and disables the push feature for HTTP2.
+    ///
+    /// Passing `None` will do nothing.
+    pub fn http2_enable_push(mut self, sz: impl Into<Option<bool>>) -> ClientBuilder {
+        self.config.http2_enable_push = sz.into();
+        self
+    }
+
+    /// Sets the header table size to use for HTTP2.
+    ///
+    /// Passing `None` will do nothing.
+
+    pub fn http2_header_table_size(mut self, sz: impl Into<Option<u32>>) -> ClientBuilder {
+        self.config.http2_header_table_size = sz.into();
         self
     }
 
@@ -1445,6 +1670,24 @@ impl ClientBuilder {
     #[cfg_attr(docsrs, doc(cfg(feature = "rustls-tls")))]
     pub fn use_rustls_tls(mut self) -> ClientBuilder {
         self.config.tls = TlsBackend::Rustls;
+        self
+    }
+
+    /// Force using the Boring TLS backend.
+    ///
+    /// Since multiple TLS backends can be optionally enabled, this option will
+    /// force the `boring` backend to be used for this `Client`.
+    ///
+    /// # Optional
+    ///
+    /// This requires the optional `boring-tls(-...)` feature to be enabled.
+    #[cfg(feature = "__boring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "boring-tls")))]
+    pub fn use_boring_tls(
+        mut self,
+        builder_func: Arc<dyn Fn() -> boring::ssl::SslConnectorBuilder + Send + Sync>,
+    ) -> ClientBuilder {
+        self.config.tls = TlsBackend::BoringTls(builder_func);
         self
     }
 
@@ -1929,6 +2172,168 @@ impl Client {
             }
         }
     }
+
+    /// Returns a `String` of the header-value of all `Cookie` in a `Url`.
+    #[cfg(feature = "cookies")]
+    pub fn get_cookies(&self, url: &Url) -> Option<HeaderValue> {
+        self.inner
+            .cookie_store
+            .as_ref()
+            .and_then(|cookie_store| cookie_store.cookies(url))
+    }
+
+    /// Injects a 'Cookie' into the 'CookieStore' for the specified URL.
+    ///
+    /// This method accepts a collection of cookies, which can be either an owned
+    /// vector (`Vec<HeaderValue>`) or a reference to a slice (`&[HeaderValue]`).
+    /// It will convert the collection into an iterator and pass it to the
+    /// `cookie_store` for processing.
+    ///
+    /// # Parameters
+    /// - `url`: The URL associated with the cookies to be set.
+    /// - `cookies`: A collection of `HeaderValue` items, either by reference or owned.
+    ///
+    /// This method ensures that cookies are only set if at least one cookie
+    /// exists in the collection.
+    #[cfg(feature = "cookies")]
+    pub fn set_cookies<C>(&self, url: &Url, cookies: C)
+    where
+        C: AsRef<[HeaderValue]>,
+    {
+        if let Some(ref cookie_store) = self.inner.cookie_store {
+            let mut cookies = cookies.as_ref().iter().peekable();
+            if cookies.peek().is_some() {
+                cookie_store.set_cookies(&mut cookies, url);
+            }
+        }
+    }
+
+    /// Injects a 'Cookie' into the 'CookieStore' for the specified URL, using references to `HeaderValue`.
+    ///
+    /// This method accepts a collection of cookies by reference, which can be either a slice (`&[&'a HeaderValue]`).
+    /// It will map each reference to the value of `HeaderValue` and pass the resulting iterator to the `cookie_store`
+    /// for processing.
+    ///
+    /// # Parameters
+    /// - `url`: The URL associated with the cookies to be set.
+    /// - `cookies`: A collection of references to `HeaderValue` items.
+    ///
+    /// This method ensures that cookies are only set if at least one cookie
+    /// exists in the collection.
+    #[cfg(feature = "cookies")]
+    pub fn set_cookies_by_ref<'a, C>(&self, url: &Url, cookies: C)
+    where
+        C: AsRef<[&'a HeaderValue]>,
+    {
+        if let Some(ref cookie_store) = self.inner.cookie_store {
+            let mut cookies = cookies.as_ref().iter().copied().peekable();
+            if cookies.peek().is_some() {
+                cookie_store.set_cookies(&mut cookies, url);
+            }
+        }
+    }
+
+    /// Returns a mutable reference to the internal state of the `Client` wrapped in a `ClientMut`.
+    ///
+    /// This method allows you to obtain a mutable reference to the internal state of the `Client`
+    /// by wrapping it in a `ClientMut`. This is useful when you need to modify the internal state
+    /// of the `Client` while ensuring that the modifications are safe and properly synchronized.
+    ///
+    /// # Returns
+    ///
+    /// * `ClientMut<'_>` - A wrapper around a mutable reference to the internal state of the `Client`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut client = reqwest::Client::new();
+    /// let mut client_mut = client.as_mut();
+    /// // Modify the internal state of the client using `client_mut`
+    /// ```
+    pub fn as_mut(&mut self) -> ClientMut<'_> {
+        let inner = Arc::get_mut(&mut self.inner).expect("ClientRef inner should be unique");
+        ClientMut {
+            inner,
+        }
+    }
+}
+
+/// A mutable reference to a `ClientRef`.
+///
+/// This struct provides methods to mutate the state of a `ClientRef`.
+#[derive(Debug)]
+pub struct ClientMut<'c> {
+    inner: &'c mut ClientRef,
+}
+
+impl<'c> ClientMut<'c> {
+    /// Retrieves a mutable reference to the headers for this client.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `HeaderMap` containing the headers for this client.
+    pub fn headers(&mut self) -> &mut HeaderMap {
+        &mut self.inner.headers
+    }
+
+    /// Sets the redirect policy for this client.
+    ///
+    /// # Arguments
+    ///
+    /// * `policy` - The redirect policy to set.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `Client` instance with the applied redirect policy.
+    pub fn redirect(&mut self, mut policy: redirect::Policy) -> &mut ClientMut<'c> {
+        std::mem::swap(&mut self.inner.redirect_policy, &mut policy);
+        self
+    }
+
+    /// Set the cookie provider for this client.
+    #[cfg(feature = "cookies")]
+    pub fn cookie_provider<C>(&mut self, cookie_store: Arc<C>) -> &mut ClientMut<'c>
+    where
+        C: cookie::CookieStore + 'static,
+    {
+        std::mem::swap(&mut self.inner.cookie_store, &mut Some(cookie_store as _));
+        self
+    }
+
+    /// Sets the proxies for this client.
+    ///
+    /// # Arguments
+    ///
+    /// * `proxies` - An optional vector of `Proxy` instances to set for the client.
+    ///
+    /// If `Some`, the provided proxies will be used, and the client will check if any of them require HTTP authentication.
+    /// If `None`, all proxies will be cleared and HTTP authentication will be disabled.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `Client` instance with the applied proxy settings.
+    #[inline]
+    pub fn proxies<P>(&mut self, proxies: P) -> &mut ClientMut<'c>
+    where
+        P: Into<Option<Vec<Proxy>>>,
+    {
+        match proxies.into() {
+            Some(proxies) => {
+                self.inner.proxies_maybe_http_auth =
+                    proxies.iter().any(|p| p.maybe_has_http_auth());
+                std::mem::swap(&mut self.inner.proxies, &mut Arc::new(proxies));
+            }
+            None => {
+                self.inner.proxies_maybe_http_auth = false;
+                self.inner.proxies = Arc::new(Vec::new());
+            }
+        }
+        self
+    }
+
+
+
+
 }
 
 impl fmt::Debug for Client {
@@ -2101,6 +2506,22 @@ struct ClientRef {
     proxies: Arc<Vec<Proxy>>,
     proxies_maybe_http_auth: bool,
     https_only: bool,
+}
+
+impl fmt::Debug for ClientRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ClientRef")
+            .field("accepts", &self.accepts)
+            .field("headers", &self.headers)
+            .field("hyper", &"<hyper_client>")
+            .field("redirect_policy", &self.redirect_policy)
+            .field("referer", &self.referer)
+            .field("request_timeout", &self.request_timeout)
+            .field("proxies", &self.proxies)
+            .field("proxies_maybe_http_auth", &self.proxies_maybe_http_auth)
+            .field("https_only", &self.https_only)
+            .finish()
+    }
 }
 
 impl ClientRef {
